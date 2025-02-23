@@ -47,7 +47,7 @@ getSecret("UUSE_API_KEY")
   headers,
   data: {
     dataCollectionId: "Blog/Posts",
-    query: {filter: { title: "title"}, // Corrected filter syntax
+    query: {filter: { uuid: {$eq:"uuid"}}, // Corrected filter syntax
     paging: {
       limit: 2,  // Get 10 blog posts per request
       offset: 0   // Skip 0 items (for pagination)
@@ -173,6 +173,7 @@ axios(blogQueryOptions)
       blogUpdateOptions.data.draftPost.commentingEnabled = isCommentable;
       console.log("Blog changes due to commenting enabled",blogChanged,(!isCommentable && post.commentingEnabled))
 
+
       const title = post.title;
       const date = new Date(extractDate(post.title)).toISOString().substring(0,10);
       console.log("Blog Info",title,"\n - "+((hasSermonWordsInTitle)?"Is Sermon":""),
@@ -180,7 +181,8 @@ axios(blogQueryOptions)
                   "and",((isCommentable)?"is Commentable":"is Not Commentable.")
                   ,"Date is",date);
 
-      blogDBQueryOptions.data.query.filter.title = post.title;
+      const uuid = post.id;
+      blogDBQueryOptions.data.query.filter = {"uuid":{$eq:uuid}};
 
       axios(blogDBQueryOptions)
       .then(function(response2){
@@ -191,26 +193,26 @@ axios(blogQueryOptions)
         getService(date) // just one should have been returned
         .then(service => {
           if (service == null) {
-            console.log("why was the service null?");
-            return;
-          }
-          console.log(" Matching Service Title?",service?.data.title || `Not Found ${service}`);
-          console.log(" Matching Service Date? ",service?.data.date  || `Not Found ${service}`);
-          console.log(" Matching Service ID? "  ,service?.id     || `Not Found ${service}`);
-          
-          if (hasSermonWordsInTitle){
-            blogUpdateOptions.data.draftPost.categoryIds = [sermonCategoryID];
-            blogChanged = true;
-            console.log("Blog changed because sermon found",blogChanged)
-            updateService("sermon",service.id, internalBlogID, service); // post.id
-          } 
+            console.log("There's no Service for this Blog Entry");
+          } else {
+            console.log(" Matching Service Title?",service?.data.title || `Not Found ${service}`);
+            console.log(" Matching Service Date? ",service?.data.date  || `Not Found ${service}`);
+            console.log(" Matching Service ID? "  ,service?.id     || `Not Found ${service}`);
+            
+            if (hasSermonWordsInTitle){
+              blogUpdateOptions.data.draftPost.categoryIds = [sermonCategoryID];
+              blogChanged = true;
+              console.log("Blog changed because sermon found",blogChanged)
+              updateService("sermon",service.id, internalBlogID, service); // post.id
+            } 
 
-          if (hasOOSWordsInTitle){
-            blogUpdateOptions.data.draftPost.categoryIds = [oosCategoryID];
-            blogChanged = true;
-            console.log("Blog changed because OOS found",blogChanged)
-            updateService("document",service.id, internalBlogID, service); // post.id
-          } 
+            if (hasOOSWordsInTitle){
+              blogUpdateOptions.data.draftPost.categoryIds = [oosCategoryID];
+              blogChanged = true;
+              console.log("Blog changed because OOS found",blogChanged)
+              updateService("document",service.id, internalBlogID, service); // post.id
+            } 
+          }
           console.log("Blog Changes?",(blogChanged?"Yes":"No"),((allowUpdates?"Updating":"Not updating"),post.id));//,JSON.stringify(post,null,'\t')));        
           if (allowUpdates && blogChanged) { // this is just a way to turn this section on or off when debugging
             axios(blogUpdateOptions)
